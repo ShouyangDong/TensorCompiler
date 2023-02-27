@@ -2,7 +2,7 @@ Introduction
 ============
 In the above figure, the tensor operator linear, add, relu, and softmax are all primitive tensor functions. Notably, many different abstractions can represent (and implement) the same primitive tensor function add (as shown in the figure below). We can choose to call into pre-built framework libraries(e.g. torch.add or numpy.add), and leverage an implementation in python. In practice, primitive functions are implemented in low-level languages such as C/C++ with sometimes a mixture of assembly code.
 
-![primitive tensor function](./function.png)
+![primitive tensor function](./image/function.png)
 
 TVMScript
 =========
@@ -110,29 +110,29 @@ Tir script enables developers to write TensorIR through python syntax, one of th
 
 
 ![Overvier of TensorIR. A key abstraction named block is used to divide and isolate the tensorized computations,
-and enables further loop transformations with tensorized operations.](./tensorir.png)
+and enables further loop transformations with tensorized operations.](./image/tensorir.png)
 
 
 ![An example TensorIR program with three major
 elements - multi-dimensional buffers, loop nests and com-
-putational block. Details of block is omitted for simplification.](./buffer.png)
+putational block. Details of block is omitted for simplification.](./image/buffer.png)
 
 ![Blocks contain complete signature for dependency
 analysis and we make it an isolation level between body
-computation and outer loop nesting.](./block.png)
+computation and outer loop nesting.](./image/block.png)
 
 ![Loop transformations mutate outside loop nests
-but change nothing inside the block.](./loop.png)
+but change nothing inside the block.](./image/loop.png)
 
 ![Blockization creates a new block to isolation inside
-computation and outside loop nesting.](./blcokization.png)
+computation and outside loop nesting.](./image/blcokization.png)
 
 ![Automatic optimization for tensorized program with hardware intrinsics. We take 64x64x64 matrix multiplication
 followed by a RELU operator as the input workload and 4x4x4 matmul as the synthetic tensor intrinsic which is implemented
 by a dot product instruction. The tensorization candidate generation step tiles the 64x64x64 GEMM into 4x4x4 sub-tiles and
 isolate the sub-computation. Then the tensorized program sketch generation step schedules the computation and insert the
 resulting data movement (AutoCopy) blocks which are scheduled independently. Finally, we use evolutionary search to fill
-the random decisions in sketches with a validation mechanism to filter out incorrect programs.](./optimization.png)
+the random decisions in sketches with a validation mechanism to filter out incorrect programs.](./image/optimization.png)
 
 Meta Schedule
 =============
@@ -318,7 +318,7 @@ design_space_generator = ms.PostOrderApply(rules=[
 
 This section introduces the underlying techniques for the automation system to extract and explore the design space. The figure below briefly illustrates the workflow of the system:
 
-![workflow](./workflow.png)
+![workflow](./image/workflow.png)
 
 ### 4.1. Execution trace as the design space
 
@@ -338,7 +338,7 @@ Instruction 6. Reorder
 ### 4.2. Exploring the Design Space
 
 Meta Schedule provides several built-in exploration strategies to exhaustively or efficiently search for efficient schedules. Those strategies are mostly supported by re-execute either a function or a trace with a builtin interpreter in meta schedule, and this process is called replay.
-![Learning-driven search.](./search.png)
+![Learning-driven search.](./image/search.png)
 
 #### Random search by replaying schedule functions
 
@@ -455,11 +455,11 @@ offers composable formats and composable transformations for
 deep learning workloads. SparseTIR constructs a search space over
 these composable components for performance tuning.
 
-![Single-shot sparse compilers vs SparseTIR](./sparce.png)
+![Single-shot sparse compilers vs SparseTIR](./image/sparce.png)
 
-![Format decomposition](./format.png)
+![Format decomposition](./image/format.png)
 
-![Stage I schedules sequentially applied to stage I IR](./stage.png)
+![Stage I schedules sequentially applied to stage I IR](./image/stage.png)
 
 Reference
 =========

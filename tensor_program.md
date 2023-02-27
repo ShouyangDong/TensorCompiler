@@ -461,3 +461,8 @@ these composable components for performance tuning.
 
 ![Stage I schedules sequentially applied to stage I IR](./stage.png)
 
+Reference
+=========
+1. [TensorIR: An Abstraction for Automatic Tensorized Program Optimization](https://arxiv.org/abs/2207.04296) by Siyuan Feng, Bohan Hou et al., ASPLOS 2023
+2. [Tensor Program Optimization with Probabilistic Programs](https://arxiv.org/abs/2205.13603) by Junru Shao et al., NeurIPS 2022
+3. [SparseTIR: Composable Abstractions for Sparse Compilation in Deep Learning](https://arxiv.org/abs/2207.04606) by Zihao Ye et al., ASPLOS 2023

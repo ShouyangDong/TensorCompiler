@@ -32,6 +32,134 @@ class Module:
                     C_1[x, y] = (C_1[x, y] + (A_1[x, k]*B_1[k, y]))
 ```
 
+## Metaprogramming features to support
+### (F1) Template Metaprogramming
+Users should be able to use variables from outer scope in the TVMScript function/class. The parsed result should be identical to function/class with the variable replaced by its value. For instance,
+```dotnetcli
+@T.prim_func
+def matmul(
+  A: T.Buffer[(128, 128)],
+) -> None:
+  ...
+
+def gen_matmul(n, m) -> None:
+  @T.prim_func
+  def f(A: T.Buffer[(n, m)]):
+    ...
+  return f
+
+f = gen_matmul(n=128, m=128) # `f` should be identical to `matmul`
+```
+### (F2) Rank-polymorphism
+Users should be able to write a single function to handle different ranks of input buffers (different numbers of dimensions). For example, user should be able to write a generic function to do broadcast add,
+```dotnetcli
+def broadcast_add(a, b, c):
+  @T.prim_func
+  def f(
+    A: T.BufferFrom(a),
+    B: T.BufferFrom(b),
+    C: T.BufferFrom(c),
+  ) -> None:
+    for i, i_a, i_b in T.some_broadcast_method(A.shape, B.shape):
+      with T.block():
+        C[*i] = A[*i_a] + B[*i_b]
+
+broadcast_add(
+  a = Buffer((128, 1), "float32"),
+  b = Buffer((1, 128), "float32"),
+  c = Buffer((128, 128), "float32"),
+)
+```
+### (F3) Interleave host program and TVMScript program to customize metaprogramming
+As an escape hatch from writing code to be parsed by the TVMScript parser, users should be able to write imperative code to construct IR nodes directly and embed it inside regular TVMScript. Those code will be evaluated by the Python interpreter when parsing. This gives users the ultimate tool when TVMScript isn’t expressible enough for their use cases. For example, at python/tvm/topi/vision/nms.py#L380-L431, there are blocks of repetitive code on computing the coordinates of the four corners of bounding box. This can be simplified as:
+```dotnetcli
+# Before, without IRBuilder interleaving
+@T.prim_func
+def nms(...):
+  ...
+  for i in range(batch_size):
+    ...
+    a_l = min(
+      output[batch_idx, box_a_idx, box_start_idx],
+      output[batch_idx, box_a_idx, box_start_idx + 2],
+    )
+    a_t = min(
+      output[batch_idx, box_a_idx, box_start_idx + 1],
+      output[batch_idx, box_a_idx, box_start_idx + 3],
+    )
+    a_r = max(
+      output[batch_idx, box_a_idx, box_start_idx],
+      output[batch_idx, box_a_idx, box_start_idx + 2],
+    )
+    a_b = max(
+      output[batch_idx, box_a_idx, box_start_idx + 1],
+      output[batch_idx, box_a_idx, box_start_idx + 3],
+    )
+		...
+    for k in range(j):
+      check_iou = ...
+			...
+      if check_iou > 0:
+        # b_l: left, b_t: top, b_r: right, b_b: bottom
+        b_l = min(
+          output[batch_idx, box_b_idx, box_start_idx],
+          output[batch_idx, box_b_idx, box_start_idx + 2],
+        )
+        b_t = min(
+          output[batch_idx, box_b_idx, box_start_idx + 1],
+          output[batch_idx, box_b_idx, box_start_idx + 3],
+        )
+        b_r = max(
+          output[batch_idx, box_b_idx, box_start_idx],
+          output[batch_idx, box_b_idx, box_start_idx + 2],
+        )
+        b_b = max(
+          output[batch_idx, box_b_idx, box_start_idx + 1],
+          output[batch_idx, box_b_idx, box_start_idx + 3],
+        )
+        ...
+
+# With IRBuilder interleaving:
+
+from tvm.script import tir as T
+
+def get_box_coordinates(output, batch_idx, box_idx, box_start_idx):
+  """a method executed by python interpreter"""
+  box_l = T.min(
+    output[batch_idx, box_idx, box_start_idx],
+    output[batch_idx, box_idx, box_start_idx + 2],
+	) # type(box_l) is PrimExpr
+  ... # Repeat for other coordinates
+  return box_l, box_t, box_r, box_b
+
+@T.prim_func(capture=[get_box_coordinates])
+def nms(...):
+  ...
+  for i in range(batch_size):
+    ...
+    a_l, a_t, a_r, a_b = get_box_coordinates(output, batch_idx, box_a_idx, box_start_idx)
+    ...
+    for k in range(j):
+      check_iou = ...
+      ...
+      if check_iou > 0:
+        b_l, b_t, b_r, b_b = get_box_coordinates(output, batch_idx, box_b_idx, box_start_idx)
+        ...
+```
+
+### (F4) Container Array/Map/String/List
+Currently, TVM already provides data type support such as String/Array/Map at the Runtime level, but there is no corresponding interface at the relay ir, and we sincerely hope to provide corresponding support at the ir level.
+
+```dotnetcli
+py_vocab = {"hello": 0}
+
+def term2idx():
+    vocab = tvm.runtime.container.Map(py_vocab)
+    terms = relay.var("terms", relay.ListType(relay.StringType()))
+    idxes = relay.lookup(vocab, terms)  # lookup is a op
+    return relay.Function([terms], idxes, ret_type=relay.ListType(relay.scalar_type("int32")))
+```
+
 Tensor IR
 =========
 

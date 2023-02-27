@@ -16,6 +16,7 @@ from the fast deployment of their cutting-edge libraries, DL framework developer
 to accommodate new versions of libraries, and machine learning
 practitioners need to wait for the integration of new technologies
 and often encounter unsatisfactory performance.
+
 ![collage](./image/collage.png)
 
 ## Motivation

@@ -16,20 +16,22 @@ intercept, manipulate and customize the compiler behavior in a principled way.
 
 ```
 class Module:
-    def mmult(A: ty.handle, B: ty.handle, C: ty.handle) -> None:
-        # function attr dict
-        tir.func_attr({"global_symbol": "mmult", "tir.noalias": True})
-        A_1 = tir.buffer_bind(A, [1024, 1024], elem_offset=0, align=128, offset_factor=1)
-        B_1 = tir.buffer_bind(B, [1024, 1024], elem_offset=0, align=128, offset_factor=1)
-        C_1 = tir.buffer_bind(C, [1024, 1024], elem_offset=0, align=128, offset_factor=1)
-        # body
-        tir.attr(C_1, "realize_scope", "")
-        tir.realize(C_1[0:1024, 0:1024])
-        for x in tir.range(0, 1024):
-            for y in tir.range(0, 1024):
-                C_1[x, y] = tir.float32(0)
-                for k in tir.range(0, 1024):
-                    C_1[x, y] = (C_1[x, y] + (A_1[x, k]*B_1[k, y]))
+    @T.prim_func
+    def main(  # type: ignore
+        a: T.handle,
+        b: T.handle,
+        c: T.handle,
+    ) -> None:  # pylint: disable=no-self-argument
+        T.func_attr({"global_symbol": "main", "tir.noalias": True})
+        A = T.match_buffer(a, [16, 128, 128])
+        B = T.match_buffer(b, [16, 128, 128])
+        C = T.match_buffer(c, [16, 128, 128])
+        for n, i, j, k in T.grid(16, 128, 128, 128):
+            with T.block("matmul"):
+                vn, vi, vj, vk = T.axis.remap("SSSR", [n, i, j, k])
+                with T.init():
+                    C[vn, vi, vj] = 0.0  # type: ignore
+                C[vn, vi, vj] = C[vn, vi, vj] + A[vn, vi, vk] * B[vn, vj, vk]
 ```
 
 ## Metaprogramming features to support

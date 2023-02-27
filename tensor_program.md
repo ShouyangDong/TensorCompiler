@@ -148,7 +148,7 @@ def nms(...):
         b_l, b_t, b_r, b_b = get_box_coordinates(output, batch_idx, box_b_idx, box_start_idx)
         ...
 ```
-### Cross function calls
+### (F4) Cross function calls
 Define my own operator using TIR interface, which means I’d create a PrimFunc at the top level, initialize an IRModule from it and build this IRModule.
 
 ```dotnetcli

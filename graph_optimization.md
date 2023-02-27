@@ -16,7 +16,7 @@ from the fast deployment of their cutting-edge libraries, DL framework developer
 to accommodate new versions of libraries, and machine learning
 practitioners need to wait for the integration of new technologies
 and often encounter unsatisfactory performance.
-
+![collage](./image/collage.png)
 
 ## Motivation
 
@@ -136,6 +136,35 @@ def @main(%x: Tensor[(1, 1, 28, 28), float32]) -> Tensor[(1, 10), float32] {
       meta[relay.Constant][5] /*Tensor[(1, 10), float32]*/)
 }
 ```
+
+## Reference-level explanation
+If the relay.collage.enable_collage PassConfig attribute is true then a new CollagePartitioner pass is inserted before all other Relay passes. The result of the pass is:
+
+All Relay sub-graphs in all global functions which are to be handed off to a BYOC toolchain are replaced by calls to an inline "Primitive" function with "Compiler" and "global_symbol" attributes.
+Relay operators, or groups of operators, which are to be translated to particular library or BYOC-supplied function are replaced by calls to an inline "Composite" function. (This encoding is supported for both BYOC and external libraries.)
+TODO(mbs): We need to also support RFC10 style BYOC extensions in the partitioning encoding.
+
+Note that no "Primitive" functions denoting TVM kernels are produced -- the existing FuseOps pass is still required.
+
+The CollagePartitioner pass has four phases:
+
+* Phase 1: The available Targets are scanned to build a list of rules describing how to find possible partitions ( see PartitionSpec and PartitionRule below). Depending on the Target the rules may incorporate entries from the BYOC pattern table. (The remaining phases execute on each global function separately.)
+
+* Phase 2: A dataflow graph is constructed for the global function (which is just an IndexedGraph<Expr>). The available rules from phase 1 are evaluated on the dataflow graph to yield a (possibly overlapping) set of candidate partitions for each target (see CandidatePartition below). Each candidate efficiently describes a sub-graph of the global function's body without the need to construct any new expressions (see SubGraph below).
+
+* Phase 3: A least cost path is found in the following (implicit and lazily constructed) search graph:
+
+  1. Search Node: Each node represents the set of 'covered' dataflow nodes which have been assigned to a candidate partition on every path to the node from the starting node.
+  2. Starting node: The search node with empty 'covered' set.
+  3.Ending node: The search node with every dataflow node in the 'covered' set.
+  4. Search Edge X->Y: A candidate partition P does not overlap X's 'covered' nodes. Y's 'covered' nodes are those of X union P. To avoid an unnecessary search space explosion the candidate must also include the next yet-to-be-covered dataflow node in X.
+  5. Edge cost: The estimated latency of the candidate partition, plus a partition transition penalty. Note that though we need to be able to extract the candidate's sub-graph in order to build a function representing the candidate to measure with, we do not yet need to partition the overall function body expression.
+
+    Other search algorithms are certainly possible, eg the paper uses an evolutionary search to refine the partitioning found by the dynamic-programming search. We can easily abstract away the search interface to support multiple implementations in the future.
+
+* Phase 4: The function body is partitioned according to the candidate kernels on the shortest path. This phase can be run independently of the first three so that additional inspection or optimization may be applied to the intmediate optimal partitioning.
+
+In the following we introduce the new datatypes, then expand on the phases.
 Reference
 =========
 

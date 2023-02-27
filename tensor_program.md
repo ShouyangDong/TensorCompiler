@@ -17,7 +17,7 @@ intercept, manipulate and customize the compiler behavior in a principled way.
 ```
 class Module:
     @T.prim_func
-    def main(  # type: ignore
+    def mmult(  # type: ignore
         a: T.handle,
         b: T.handle,
         c: T.handle,
@@ -149,7 +149,7 @@ def nms(...):
         ...
 ```
 
-### (F4) Container Array/Map/String/List
+## Container Array/Map/String/List
 Currently, TVM already provides data type support such as String/Array/Map at the Runtime level, but there is no corresponding interface at the relay ir, and we sincerely hope to provide corresponding support at the ir level.
 
 ```dotnetcli

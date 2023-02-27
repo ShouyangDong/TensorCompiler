@@ -591,8 +591,89 @@ these composable components for performance tuning.
 
 ![Stage I schedules sequentially applied to stage I IR](./image/stage.png)
 
+DietCode
+========
+
+## Motivation
+Achieving high performance for compute-intensive operators in machine learning workloads is a crucial but challenging task. Many machine learning and system practitioners rely on vendor libraries or auto-schedulers to do the job. While the former requires significant engineering efforts, the latter in TVM only supports static-shape workloads in existing works. It is difficult, if not impractical, to apply the existing auto-scheduler directly to dynamic-shape workloads, as this leads to extremely long tuning time.
+
+We observe that the key challenge faced by existing auto-schedulers when handling a dynamic-shape workload is that they cannot construct a conclusive search space for all the possible shapes of the workload, because their search space is shape-dependent. To address this, this RFC aims to add dynamic-shape supports to AutoTIR by integrating DietCode framework, which constructs a shape-generic search space and cost model to auto-schedule dynamic-shape workloads efficiently.
+
+Our evaluation shows that DietCode has the following key strengths when auto-scheduling an entire model end-to-end:
+
+reduces the auto-scheduling time by up to 5.88x less than the current auto-scheduler on 8 uniformly sampled dynamic shapes, and
+improves performance by up to 69.5% better than the auto-scheduler and 18.6% better than the vendor library. All these advantages make DietCode an efficient and practical solution for dynamic-shape workloads.
+
+## Guide-Level Explanation
+The existing experiments are largely conducted with auto-scheduler. However, having been syncing with the AutoTIR team for quarters, we plan to integrate this RFC to MetaSchedule (AutoTIR), because it provides more systematic interface and cleaner integration path with less hacks.
+
+```dotnetcli
+# A symbolic shape constraint
+T = tir.ShapeVar('T’)
+I = tir.ShapeVar('I')
+H = tir.ShapeVar('H')
+# The candidate values of `T`
+T_vals = range(1, 128)
+wkl_insts = []
+for t in T_vals:
+  wkl_insts.append((t, 768, 768))
+  wkl_insts.append((t, 768, 3072))
+  wkl_insts.append((t, 3072, 768))
+
+
+task = Task(func=Dense,
+            args=(16*T, I, H),
+            shape_vars=(T, I, H),
+            wkl_insts=wkl_insts
+            wkl_inst_weights=([1. for _ in T_vals],))
+```
+
+To enable auto-scheduling for dynamic shape workloads, users only need to:
+
+1. Have ShapeVar in the TE/TensorIR compututation.
+2. Specify the weight/distribution of each shape value.
+
+Notes:
+
+1. Symbolic constraint is required additional in Relay, but could be inferred automatically after Relax is introduced;
+2. The proposed interface does not change any existing functionality.
+
+## Reference-Level Explanation
+Here is an overview of the DietCode framework design.
+
+![dietcode](./image/dietcode.png)
+
+* We accept the shape variables and the workload instances from the programmer. In the case when they are not detected, the auto-scheduler treats the workload as static and applies and current workflow on it.
+
+* We construct a shape-generic search space that consists of micro-kernels, an incomplete program that carries out a tile of the complete computation, to efficiently support dynamic-shape workloads.
+
+* We use the hardware constraints (e.g., the maximum number of threads, the amount of shared and local memory) rather than the shape information to determine the micro-kernel candidates. Those candidates serve as the building blocks and are executed repeatedly to carry out a workload instance (defined as an static-shape instance of the dynamic-shape workload).
+
+* We build a micro-kernel-based cost model. The key insight is that the cost of a complete program P that is made up of a micro-kernel M can be decomposed into two parts:
+
+   1. A shape-generic cost function fMK that predicts the cost of M, and
+   2. A shape-dependent adaption cost function fadapt that defines the penalty of porting M to P.
+
+While fMK is a function that has to be learned and updated by real hardware measurements during the auto-scheduling process, fadapt is a simple term that can be evaluated using the core occupancy and the padding ratio (in other words, it does not require feature extraction from the schedules).
+
+* We generate one kernel per workload instance and use the scikit-learn framework to train a decision tree dispatcher to map the workload instance to its corresponding kernel. The decision tree will be output in predicate-only format for efficient runtime dispatching and embedded as part of the host code. As an example, one possible auto-scheduling outcome can look like the following:
+```dotnetcli
+__global__ void default_function0(float* X, float* W, float* Y) {...}
+__global__ void default_function1(float* X, float* W, float* Y) {...}
+__global__ void default_function2(float* X, float* W, float* Y) {...}
+
+// host code
+if (T < 16)
+  call(default_function0)
+else if (T < 64)
+  call(default_function1)
+else
+  call(default_function2)
+```
+
 Reference
 =========
 1. [TensorIR: An Abstraction for Automatic Tensorized Program Optimization](https://arxiv.org/abs/2207.04296) by Siyuan Feng, Bohan Hou et al., ASPLOS 2023
 2. [Tensor Program Optimization with Probabilistic Programs](https://arxiv.org/abs/2205.13603) by Junru Shao et al., NeurIPS 2022
 3. [SparseTIR: Composable Abstractions for Sparse Compilation in Deep Learning](https://arxiv.org/abs/2207.04606) by Zihao Ye et al., ASPLOS 2023
+4. [DietCode: Automatic Optimization for Dynamic Tensor Programs](https://proceedings.mlsys.org/paper/2022/hash/fa7cdfad1a5aaf8370ebeda47a1ff1c3-Abstract.html) by Bojian Zheng et al., MLSys 2022

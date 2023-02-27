@@ -148,7 +148,38 @@ def nms(...):
         b_l, b_t, b_r, b_b = get_box_coordinates(output, batch_idx, box_b_idx, box_start_idx)
         ...
 ```
+### Cross function calls
+Define my own operator using TIR interface, which means I’d create a PrimFunc at the top level, initialize an IRModule from it and build this IRModule.
 
+```dotnetcli
+    @tvm.script.ir_module
+    class AddOnePassPointers:
+        @T.prim_func
+        def main(a: T.handle, b: T.handle):
+            T.func_attr({"global_symbol": "main", "tir.noalias": True, "tir.is_entry_func": True})
+
+            A = T.match_buffer(a, original_shape, dtype=dtype)
+            B = T.match_buffer(b, original_shape, dtype=dtype)
+
+            for i in range(dim0_size):
+                T.call_extern("", "callee", A.data, B.data, i)
+
+        @T.prim_func
+        def callee(a_data: T.Ptr[T.int8], b_data: T.Ptr[T.int8], i: T.int32):
+            T.func_attr(
+                {
+                    "global_symbol": "callee",
+                    "tir.noalias": True,
+                    "calling_conv": 3,  # tvm::CallingConv::kIntraModule
+                }
+            )
+
+            A_tile = T.buffer_decl(tile_shape, dtype, a_data, elem_offset=dim1_size * i)
+            B_tile = T.buffer_decl(tile_shape, dtype, b_data, elem_offset=dim1_size * i)
+
+            for j in range(dim1_size):
+                B_tile[j] = A_tile[j] + T.cast(1, dtype)
+```
 ## Container Array/Map/String/List
 Currently, TVM already provides data type support such as String/Array/Map at the Runtime level, but there is no corresponding interface at the relay ir, and we sincerely hope to provide corresponding support at the ir level.
 

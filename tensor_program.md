@@ -270,28 +270,34 @@ Since every primitive directly rewrite the AST (it works like a StmtMutator), we
 Tir script enables developers to write TensorIR through python syntax, one of the most popular languages. Also, it provides a way to store the IR after or during the schedule.
 
 ![Overvier of TensorIR. ](./image/tensorir.png)
+
 A key abstraction named block is used to divide and isolate the tensorized computations,
 and enables further loop transformations with tensorized operations.
 
 
-![buffer](./image/buffer.png)
+![buffer.](./image/buffer.png)
+
 An example TensorIR program with three major
 elements multi-dimensional buffers, loop nests and computational block. Details of block is omitted for simplification.
 
 ![block](./image/block.png)
+
 Blocks contain complete signature for dependency
 analysis and we make it an isolation level between body
 computation and outer loop nesting.
 
-![loop](./image/loop.png)
+![loop.](./image/loop.png)
+
 Loop transformations mutate outside loop nests
 but change nothing inside the block.
 
-![blockization](./image/blcokization.png)
+![blockization.](./image/blcokization.png)
+
 Blockization creates a new block to isolation inside
 computation and outside loop nesting.
 
-![optimization](./image/optimization.png)
+![optimization.](./image/optimization.png)
+
 Automatic optimization for tensorized program with hardware intrinsics. We take 64x64x64 matrix multiplication
 followed by a RELU operator as the input workload and 4x4x4 matmul as the synthetic tensor intrinsic which is implemented
 by a dot product instruction. The tensorization candidate generation step tiles the 64x64x64 GEMM into 4x4x4 sub-tiles and

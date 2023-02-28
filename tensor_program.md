@@ -269,31 +269,35 @@ Since every primitive directly rewrite the AST (it works like a StmtMutator), we
 
 Tir script enables developers to write TensorIR through python syntax, one of the most popular languages. Also, it provides a way to store the IR after or during the schedule.
 
+![Overvier of TensorIR. ](./image/tensorir.png)
+A key abstraction named block is used to divide and isolate the tensorized computations,
+and enables further loop transformations with tensorized operations.
 
-![Overvier of TensorIR. A key abstraction named block is used to divide and isolate the tensorized computations,
-and enables further loop transformations with tensorized operations.](./image/tensorir.png)
 
+![buffer](./image/buffer.png)
+An example TensorIR program with three major
+elements multi-dimensional buffers, loop nests and computational block. Details of block is omitted for simplification.
 
-![An example TensorIR program with three major
-elements - multi-dimensional buffers, loop nests and com-
-putational block. Details of block is omitted for simplification.](./image/buffer.png)
-
-![Blocks contain complete signature for dependency
+![block](./image/block.png)
+Blocks contain complete signature for dependency
 analysis and we make it an isolation level between body
-computation and outer loop nesting.](./image/block.png)
+computation and outer loop nesting.
 
-![Loop transformations mutate outside loop nests
-but change nothing inside the block.](./image/loop.png)
+![loop](./image/loop.png)
+Loop transformations mutate outside loop nests
+but change nothing inside the block.
 
-![Blockization creates a new block to isolation inside
-computation and outside loop nesting.](./image/blcokization.png)
+![blockization](./image/blcokization.png)
+Blockization creates a new block to isolation inside
+computation and outside loop nesting.
 
-![Automatic optimization for tensorized program with hardware intrinsics. We take 64x64x64 matrix multiplication
+![optimization](./image/optimization.png)
+Automatic optimization for tensorized program with hardware intrinsics. We take 64x64x64 matrix multiplication
 followed by a RELU operator as the input workload and 4x4x4 matmul as the synthetic tensor intrinsic which is implemented
 by a dot product instruction. The tensorization candidate generation step tiles the 64x64x64 GEMM into 4x4x4 sub-tiles and
 isolate the sub-computation. Then the tensorized program sketch generation step schedules the computation and insert the
 resulting data movement (AutoCopy) blocks which are scheduled independently. Finally, we use evolutionary search to fill
-the random decisions in sketches with a validation mechanism to filter out incorrect programs.](./image/optimization.png)
+the random decisions in sketches with a validation mechanism to filter out incorrect programs.
 
 Meta Schedule
 =============
